@@ -1,0 +1,1113 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>지적기준점 조사</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Noto+Sans+KR:wght@400;500;700&display=swap');
+
+:root {
+  --bg:#0d1117; --panel:#161b22; --card:#21262d;
+  --border:#30363d; --lit:#484f58;
+  --accent:#e6a817; --adim:rgba(230,168,23,.15);
+  --text:#e6edf3; --sub:#8b949e; --muted:#484f58;
+  --green:#3fb950; --red:#f85149; --orange:#d29922; --gray:#6e7681; --blue:#58a6ff;
+  --r:8px; --r2:14px;
+  --mono:'JetBrains Mono',monospace; --ui:'Noto Sans KR',sans-serif;
+  --pw:340px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;font-family:var(--ui);background:var(--bg);color:var(--text);overflow:hidden;-webkit-tap-highlight-color:transparent}
+
+/* ── 앱 레이아웃 ── */
+#app{display:flex;height:100vh;position:relative}
+#map{flex:1;background:#0a0f1a;min-height:0;height:100%}
+
+/* ── Leaflet ── */
+.leaflet-container{background:#0a0f1a!important}
+.leaflet-control-zoom a{background:var(--card)!important;color:var(--text)!important;border-color:var(--border)!important}
+.leaflet-control-attribution{background:rgba(13,17,23,.8)!important;color:var(--muted)!important;font-size:10px}
+.leaflet-control-attribution a{color:var(--muted)!important}
+
+/* ── 상단바 ── */
+#topbar{position:absolute;top:0;left:0;right:0;height:52px;z-index:1000;
+  background:rgba(13,17,23,.93);backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;padding:0 12px;gap:8px}
+.logo{display:flex;align-items:center;gap:7px;font-weight:700;font-size:14px;white-space:nowrap}
+.logo-ic{width:26px;height:26px;background:var(--accent);border-radius:6px;
+  display:flex;align-items:center;justify-content:center;font-size:12px}
+.logo em{color:var(--accent);font-style:normal}
+.sep{flex:1}
+#cnt{font-family:var(--mono);font-size:11px;color:var(--sub);
+  background:var(--card);border:1px solid var(--border);border-radius:20px;
+  padding:3px 9px;white-space:nowrap}
+#cnt b{color:var(--accent)}
+.ib{width:34px;height:34px;border:1px solid var(--border);border-radius:var(--r);
+  background:var(--card);color:var(--sub);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;font-size:15px;
+  transition:all .15s;flex-shrink:0;border:none}
+.ib:hover{background:var(--card);color:var(--text)}
+.ib.on{border:1px solid var(--accent)!important;color:var(--accent);background:var(--adim)}
+
+/* ── 지도 오버레이 ── */
+#tile-menu{position:absolute;top:64px;left:10px;z-index:900;
+  background:rgba(13,17,23,.9);border:1px solid var(--border);
+  border-radius:var(--r);overflow:hidden;backdrop-filter:blur(8px)}
+.tmb{display:block;padding:7px 12px;font-size:11px;color:var(--sub);
+  cursor:pointer;background:none;border:none;font-family:var(--ui);
+  white-space:nowrap;width:100%;text-align:left;transition:all .15s}
+.tmb:hover{background:var(--card);color:var(--text)}
+.tmb.on{background:var(--adim);color:var(--accent)}
+
+#legend{position:absolute;bottom:24px;left:10px;z-index:900;
+  background:rgba(13,17,23,.88);border:1px solid var(--border);
+  border-radius:var(--r);padding:8px 11px;backdrop-filter:blur(8px)}
+.li{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--sub);margin-bottom:4px}
+.li:last-child{margin-bottom:0}
+.ld{width:9px;height:9px;border-radius:50%;border:1.5px solid rgba(255,255,255,.3);flex-shrink:0}
+
+/* ── 사이드 패널 ── */
+#panel{width:var(--pw);height:100%;background:var(--panel);
+  border-left:1px solid var(--border);display:flex;flex-direction:column;
+  transition:transform .28s cubic-bezier(.4,0,.2,1);flex-shrink:0}
+#panel.hidden{transform:translateX(100%)}
+.ph{padding:14px 16px 10px;border-bottom:1px solid var(--border);flex-shrink:0}
+.ph-t{font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--sub);display:flex;align-items:center;gap:7px}
+.ph-t::before{content:'';width:3px;height:13px;background:var(--accent);border-radius:2px}
+.pb{flex:1;overflow-y:auto;padding:14px 16px}
+.pb::-webkit-scrollbar{width:3px}
+.pb::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+
+/* ── 환영 ── */
+#welcome{display:flex;flex-direction:column;align-items:center;
+  justify-content:center;height:100%;gap:10px;text-align:center;padding:24px}
+.w-ic{width:56px;height:56px;background:var(--adim);border:1px solid var(--accent);
+  border-radius:14px;display:flex;align-items:center;justify-content:center;
+  font-size:24px;margin-bottom:6px}
+#welcome h3{font-size:14px}
+#welcome p{font-size:12px;color:var(--sub);line-height:1.6}
+
+/* ── 기준점 상세 ── */
+#detail{display:none}
+.pt-hd{display:flex;align-items:flex-start;gap:10px;margin-bottom:12px}
+.pt-ic{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;
+  justify-content:center;font-size:18px;flex-shrink:0}
+.pt-nm{font-size:17px;font-weight:700;line-height:1.2}
+.pt-tp{font-size:12px;color:var(--sub);margin-top:2px}
+
+.cbox{background:var(--bg);border:1px solid var(--border);border-radius:var(--r);
+  padding:10px;margin-bottom:12px;font-family:var(--mono);font-size:11px}
+.cr{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px}
+.cr:last-child{margin-bottom:0}
+.cl{color:var(--accent);font-weight:600;font-size:10px;letter-spacing:.06em}
+
+.sec{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--muted);margin:14px 0 8px;display:flex;align-items:center;gap:6px}
+.sec::after{content:'';flex:1;height:1px;background:var(--border)}
+
+/* 상태버튼 */
+.sg{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:12px}
+.sb{padding:9px 4px;border-radius:var(--r);border:1px solid var(--border);
+  background:var(--card);color:var(--sub);font-size:12px;font-weight:500;
+  cursor:pointer;transition:all .15s;text-align:center;font-family:var(--ui)}
+.sb:hover{border-color:var(--lit);color:var(--text)}
+.sb.sn{border-color:var(--green)!important;background:rgba(63,185,80,.12)!important;color:var(--green)!important}
+.sb.sl{border-color:var(--red)!important;background:rgba(248,81,73,.12)!important;color:var(--red)!important}
+.sb.so{border-color:var(--orange)!important;background:rgba(210,153,34,.12)!important;color:var(--orange)!important}
+
+#note-wrap{display:none;margin-bottom:12px}
+.inp{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:var(--r);
+  color:var(--text);font-family:var(--ui);font-size:13px;padding:9px 11px;
+  transition:border-color .15s}
+.inp:focus{outline:none;border-color:var(--accent)}
+.inp::placeholder{color:var(--muted)}
+textarea.inp{resize:none}
+
+/* 사진슬롯 */
+.pg{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:12px}
+.ps{aspect-ratio:4/3;border:1px dashed var(--border);border-radius:var(--r);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  cursor:pointer;transition:all .15s;overflow:hidden;position:relative;background:var(--bg)}
+.ps:hover{border-color:var(--accent);background:var(--adim)}
+.ps.has{border-style:solid;border-color:var(--accent)}
+.ps img{width:100%;height:100%;object-fit:cover;position:absolute;inset:0}
+.ps-lbl{font-size:11px;color:var(--muted);margin-top:4px;position:relative;z-index:1}
+.ps-ic{font-size:20px;position:relative;z-index:1}
+.ps-badge{position:absolute;bottom:4px;right:4px;background:rgba(0,0,0,.72);
+  border-radius:4px;padding:2px 5px;font-size:10px;color:#fff;font-family:var(--mono);z-index:2}
+input[type=file]{display:none}
+
+/* 조사자 입력 */
+.surv-row{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.surv-row label{font-size:12px;color:var(--sub);white-space:nowrap}
+.surv-row .inp{height:36px;flex:1}
+
+/* 버튼 */
+.btn{width:100%;padding:11px;border-radius:var(--r);border:none;
+  font-size:13px;font-weight:700;font-family:var(--ui);cursor:pointer;
+  transition:all .15s;display:flex;align-items:center;justify-content:center;gap:6px}
+.btn-p{background:var(--accent);color:#000;margin-top:4px}
+.btn-p:hover:not(:disabled){background:#f0b920}
+.btn-p:disabled{background:var(--border);color:var(--muted);cursor:not-allowed}
+.btn-ar{background:rgba(88,166,255,.12);border:1px solid var(--blue);color:var(--blue);margin-bottom:8px}
+.btn-ar:hover{background:rgba(88,166,255,.22)}
+.btn-s{background:var(--card);border:1px solid var(--border);color:var(--sub);margin-bottom:6px}
+.btn-s:hover{border-color:var(--lit);color:var(--text)}
+
+/* 저장 진행 */
+#prog-wrap{display:none;margin-bottom:10px}
+.prog-lbl{font-size:11px;color:var(--sub);margin-bottom:4px}
+.prog-bg{height:3px;background:var(--border);border-radius:2px;overflow:hidden}
+.prog-bar{height:100%;background:var(--accent);transition:width .3s;width:0}
+
+/* ── AR ── */
+#ar{position:fixed;inset:0;z-index:7000;background:#000;display:none;flex-direction:column}
+#ar.open{display:flex}
+#ar-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+#ar-canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+#ar-top{position:absolute;top:0;left:0;right:0;z-index:2;
+  padding:max(env(safe-area-inset-top,12px),12px) 14px 12px;
+  background:linear-gradient(to bottom,rgba(0,0,0,.7),transparent);
+  display:flex;align-items:center;gap:10px}
+#ar-nm{font-size:15px;font-weight:700;flex:1}
+#ar-tp{font-size:11px;color:rgba(255,255,255,.6)}
+.aib{width:34px;height:34px;border:1px solid rgba(255,255,255,.25);border-radius:var(--r);
+  background:rgba(0,0,0,.45);color:#fff;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;font-size:15px}
+#ar-comp{position:absolute;z-index:2;left:12px;right:12px;height:46px;
+  top:calc(max(env(safe-area-inset-top,0px),0px) + 68px);
+  background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.12);
+  border-radius:10px;overflow:hidden}
+#ar-bottom{position:absolute;bottom:0;left:0;right:0;z-index:2;
+  padding:16px 20px max(env(safe-area-inset-bottom,20px),20px);
+  background:linear-gradient(to top,rgba(0,0,0,.7),transparent);
+  display:flex;justify-content:space-around}
+.as{text-align:center}
+.as-v{font-size:17px;font-weight:700}
+.as-l{font-size:10px;color:rgba(255,255,255,.6);margin-top:1px}
+
+/* ── 설정모달 ── */
+.ov{position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:8000;
+  display:none;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+.ov.open{display:flex}
+.modal{background:var(--panel);border:1px solid var(--border);border-radius:var(--r2);
+  padding:22px;width:min(420px,92vw);max-height:88vh;overflow-y:auto;
+  box-shadow:0 8px 40px rgba(0,0,0,.6)}
+.modal h2{font-size:15px;font-weight:700;margin-bottom:4px}
+.modal>p{font-size:12px;color:var(--sub);margin-bottom:18px;line-height:1.6}
+.fl{margin-bottom:12px}
+.fl-l{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--sub);margin-bottom:5px}
+.fl-hint{font-size:10px;color:var(--muted);margin-top:3px}
+.inp-h{height:38px}
+.ma{display:flex;gap:8px;margin-top:18px}
+.ma .btn{margin:0}
+
+/* ── 로딩 ── */
+#loading{display:none;position:fixed;inset:0;background:rgba(13,17,23,.85);
+  z-index:9000;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+.spin{width:38px;height:38px;border:3px solid var(--border);border-top-color:var(--accent);
+  border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.load-msg{font-size:13px;color:var(--sub);text-align:center}
+
+/* ── 토스트 ── */
+#toasts{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);
+  z-index:9999;display:flex;flex-direction:column;gap:7px;pointer-events:none}
+.toast{background:var(--card);border:1px solid var(--border);border-radius:20px;
+  padding:8px 16px;font-size:13px;color:var(--text);display:flex;align-items:center;
+  gap:7px;box-shadow:0 4px 20px rgba(0,0,0,.5);white-space:nowrap;
+  animation:tin .22s ease}
+.toast.ok{border-color:var(--green)}
+.toast.err{border-color:var(--red)}
+@keyframes tin{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── 설정 안내 배너 ── */
+#setup-banner{display:none;position:absolute;top:64px;left:50%;transform:translateX(-50%);
+  z-index:950;background:#7c3a00;border:1px solid var(--orange);border-radius:var(--r);
+  padding:10px 16px;font-size:12px;text-align:center;max-width:320px;line-height:1.5}
+#setup-banner b{color:var(--accent)}
+
+/* ── 모바일 ── */
+@media(max-width:700px){
+  :root{--pw:100vw}
+  #panel{position:absolute;top:52px;right:0;bottom:0;z-index:500}
+  #panel.hidden{transform:translateX(100%)}
+  #map{width:100%;height:calc(100vh - 52px)!important}
+  #tile-menu{display:none}
+  #legend{bottom:12px}
+}
+</style>
+</head>
+<body>
+
+<div id="app">
+  <!-- 지도 -->
+  <div id="map"></div>
+
+  <!-- 지도 UI -->
+  <div id="topbar">
+    <div class="logo">
+      <div class="logo-ic">📍</div>
+      <span>지적기준점 <em>조사</em></span>
+    </div>
+    <div class="sep"></div>
+    <div id="cnt">기준점 <b id="pt-n">0</b>개</div>
+    <button class="ib" id="btn-load" title="기준점 불러오기" style="border:1px solid var(--border)">⟳</button>
+    <button class="ib" id="btn-loc"  title="내 위치"         style="border:1px solid var(--border)">⌖</button>
+    <button class="ib" id="btn-cfg"  title="설정"            style="border:1px solid var(--border)">⚙</button>
+    <button class="ib on" id="btn-tog" title="패널 토글"     style="border:1px solid var(--accent)">◧</button>
+  </div>
+
+  <div id="tile-menu">
+    <button class="tmb on" data-tile="osm">🗺 OSM</button>
+    <button class="tmb" data-tile="google">🌐 Google</button>
+    <button class="tmb" data-tile="satellite">🛰 위성</button>
+    <button class="tmb" data-tile="kakao">🟡 카카오</button>
+  </div>
+
+  <div id="legend">
+    <div class="li"><div class="ld" style="background:#3fb950"></div>정상</div>
+    <div class="li"><div class="ld" style="background:#f85149"></div>망실</div>
+    <div class="li"><div class="ld" style="background:#d29922"></div>기타</div>
+    <div class="li"><div class="ld" style="background:#6e7681"></div>미조사</div>
+  </div>
+
+  <div id="setup-banner">
+    ⚙ <b>설정</b>에서 Apps Script URL을 먼저 입력하세요
+  </div>
+
+  <!-- 사이드 패널 -->
+  <div id="panel">
+    <div class="ph"><div class="ph-t" id="ph-title">기준점 조사</div></div>
+
+    <!-- 환영 -->
+    <div id="welcome" class="pb">
+      <div class="w-ic">📍</div>
+      <h3>기준점을 선택하세요</h3>
+      <p>지도에서 마커를 탭하면<br>조사를 시작할 수 있습니다.</p>
+      <br>
+      <button class="btn btn-s" id="btn-load2" style="width:auto;padding:9px 18px">⟳ 기준점 불러오기</button>
+    </div>
+
+    <!-- 기준점 상세 -->
+    <div id="detail" class="pb">
+      <!-- 헤더 -->
+      <div class="pt-hd">
+        <div class="pt-ic" id="pt-ic">📍</div>
+        <div>
+          <div class="pt-nm" id="pt-nm">-</div>
+          <div class="pt-tp" id="pt-tp">-</div>
+        </div>
+      </div>
+
+      <!-- 좌표 -->
+      <div class="cbox">
+        <div class="cr"><span class="cl">WGS84</span><span id="c-wgs">-</span></div>
+        <div class="cr"><span class="cl">TM 중부원점</span><span id="c-tm">-</span></div>
+      </div>
+      <!-- 조사 현황 -->
+      <div id="survey-info" style="display:none;background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:10px;margin-bottom:12px;font-size:12px">
+        <div style="font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin-bottom:6px">기존 조사 이력</div>
+        <div class="cr"><span class="cl">조사여부</span><span id="c-surveyed" style="font-weight:700">-</span></div>
+        <div class="cr" style="margin-top:4px"><span class="cl">조사자</span><span id="c-surveyor">-</span></div>
+        <div class="cr" style="margin-top:4px"><span class="cl">조사날짜</span><span id="c-surveydate">-</span></div>
+      </div>
+
+      <!-- AR 버튼 -->
+      <button class="btn btn-ar" id="btn-ar">📡 AR 오버레이로 보기</button>
+
+      <!-- 조사자 -->
+      <div class="sec">조사자</div>
+      <div class="surv-row">
+        <label>이름</label>
+        <input type="text" class="inp inp-h" id="surveyor" placeholder="이름 입력" autocomplete="name">
+      </div>
+
+      <!-- 상태 입력 -->
+      <div class="sec">조사 상태</div>
+      <div class="sg">
+        <button class="sb" data-s="normal">✅ 정상</button>
+        <button class="sb" data-s="lost">❌ 망실</button>
+        <button class="sb" data-s="other">⚠ 기타</button>
+      </div>
+      <div id="note-wrap">
+        <textarea class="inp" id="note" rows="2" placeholder="기타 내용을 직접 입력해주세요..."></textarea>
+      </div>
+
+      <!-- 사진 -->
+      <div class="sec">현장 사진</div>
+      <div class="pg">
+        <div class="ps" id="sl-near" onclick="document.getElementById('f-near').click()">
+          <span class="ps-ic">📷</span>
+          <span class="ps-lbl">근경 촬영</span>
+        </div>
+        <div class="ps" id="sl-far" onclick="document.getElementById('f-far').click()">
+          <span class="ps-ic">🔭</span>
+          <span class="ps-lbl">원경 촬영</span>
+        </div>
+      </div>
+      <input type="file" id="f-near" accept="image/*" capture="environment">
+      <input type="file" id="f-far"  accept="image/*" capture="environment">
+
+      <!-- 저장 진행 -->
+      <div id="prog-wrap">
+        <div class="prog-lbl" id="prog-lbl">저장 중...</div>
+        <div class="prog-bg"><div class="prog-bar" id="prog-bar"></div></div>
+      </div>
+
+      <!-- 저장 버튼 -->
+      <button class="btn btn-p" id="btn-save">💾 조사 결과 저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- AR 화면 -->
+<div id="ar">
+  <video id="ar-video" autoplay playsinline muted></video>
+  <canvas id="ar-canvas"></canvas>
+  <div id="ar-top">
+    <button class="aib" id="ar-close">✕</button>
+    <div>
+      <div id="ar-nm">-</div>
+      <div id="ar-tp">-</div>
+    </div>
+    <button class="aib" id="ar-pin" title="가상 마커">📌</button>
+  </div>
+  <div id="ar-comp"></div>
+  <div id="ar-bottom">
+    <div class="as"><div class="as-v" id="ar-dist">-</div><div class="as-l">거리</div></div>
+    <div class="as"><div class="as-v" id="ar-bear">-°</div><div class="as-l">목표 방위</div></div>
+    <div class="as"><div class="as-v" id="ar-head">-°</div><div class="as-l">현재 방향</div></div>
+    <div class="as"><div class="as-v" id="ar-stat">-</div><div class="as-l">상태</div></div>
+  </div>
+</div>
+
+<!-- 설정 모달 -->
+<div class="ov" id="cfg-modal">
+  <div class="modal">
+    <h2>⚙ 앱 설정</h2>
+    <p>Google Apps Script를 배포한 뒤 웹 앱 URL을 입력하면 기준점 불러오기, 조사결과 저장, 사진 업로드가 모두 작동합니다.</p>
+    <div class="fl">
+      <div class="fl-l">Apps Script 웹 앱 URL <span style="color:var(--red)">*</span></div>
+      <input type="url" class="inp inp-h" id="s-url" placeholder="https://script.google.com/macros/s/.../exec">
+      <div class="fl-hint">Code.gs를 배포 → 웹 앱 URL 복사해서 붙여넣기</div>
+    </div>
+    <div class="fl">
+      <div class="fl-l">기본 조사자 이름 <span style="color:var(--muted)">(선택)</span></div>
+      <input type="text" class="inp inp-h" id="s-surv" placeholder="기본값으로 사용할 이름">
+    </div>
+    <div class="ma">
+      <button class="btn btn-s" id="cfg-cancel" style="flex:1">취소</button>
+      <button class="btn btn-p" id="cfg-save"   style="flex:2">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- 로딩 -->
+<div id="loading">
+  <div>
+    <div class="spin"></div>
+    <div class="load-msg" id="load-msg">불러오는 중...</div>
+  </div>
+</div>
+
+<!-- 토스트 -->
+<div id="toasts"></div>
+
+<!-- Leaflet -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+
+<script>
+'use strict';
+
+// ═══════════════════════════════════════════════════════════════
+// 상수
+// ═══════════════════════════════════════════════════════════════
+const SC = { normal:'#3fb950', lost:'#f85149', other:'#d29922', unchecked:'#6e7681' };
+const SL = { normal:'정상', lost:'망실', other:'기타', unchecked:'미조사' };
+const HFOV = 60;
+
+const TILES = {
+  osm:       { url:'https://tile.openstreetmap.org/{z}/{x}/{y}.png', attr:'© OpenStreetMap' },
+  google:    { url:'https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', attr:'© Google' },
+  satellite: { url:'https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', attr:'© Google' },
+  kakao:     { url:'https://map{s}.daumcdn.net/map_2d/4.0.0/L{z}/{y}/{x}.png', attr:'© Kakao', sub:['1','2','3','4'] },
+};
+
+// ═══════════════════════════════════════════════════════════════
+// 앱 상태
+// ═══════════════════════════════════════════════════════════════
+const S = {
+  points: [], sel: null, status: null,
+  nearFile: null, farFile: null,
+  myLat: null, myLng: null, compass: 0,
+  arOpen: false, arPin: true, arStream: null, arRaf: null,
+  cfg: { url: (typeof APPS_SCRIPT_URL !== 'undefined' ? APPS_SCRIPT_URL : 'https://script.google.com/macros/s/AKfycbwq4HabMAFRvotZ9UCRhI8Ms0dw6NnOxbLzYA57DlEWHsItrXPIhc9I3Fa40Ed56roD/exec'), surveyor:'' },
+  mapType: 'osm',
+};
+
+// ═══════════════════════════════════════════════════════════════
+// 설정 저장/로드
+// ═══════════════════════════════════════════════════════════════
+function loadCfg() {
+  try { Object.assign(S.cfg, JSON.parse(localStorage.getItem('cfg') || '{}')); } catch(_){}
+  S.mapType = localStorage.getItem('mapType') || 'osm';
+}
+function saveCfg() {
+  localStorage.setItem('cfg', JSON.stringify(S.cfg));
+  localStorage.setItem('mapType', S.mapType);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 지도 초기화
+// ═══════════════════════════════════════════════════════════════
+let map, tileLayer, myMarker;
+const markers = new Map();
+
+function initMap() {
+  map = L.map('map', { center:[37.5665,126.9780], zoom:12, zoomControl:true, preferCanvas:true });
+  const t = TILES[S.mapType] || TILES.osm;
+  tileLayer = L.tileLayer(t.url, { attribution:t.attr, maxZoom:19, subdomains:t.sub||[] }).addTo(map);
+  document.querySelectorAll('.tmb').forEach(b =>
+    b.classList.toggle('on', b.dataset.tile === S.mapType));
+
+  myMarker = L.circleMarker([37.5665,126.9780], {
+    radius:8, fillColor:'#58a6ff', color:'white', weight:2.5, fillOpacity:1
+  });
+}
+
+function switchTile(type) {
+  const t = TILES[type]; if (!t) return;
+  map.removeLayer(tileLayer);
+  tileLayer = L.tileLayer(t.url, { attribution:t.attr, maxZoom:19, subdomains:t.sub||[] }).addTo(map);
+  tileLayer.bringToBack();
+  S.mapType = type; saveCfg();
+  document.querySelectorAll('.tmb').forEach(b => b.classList.toggle('on', b.dataset.tile === type));
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TM 중부원점 (EPSG:5186) → WGS84
+// ═══════════════════════════════════════════════════════════════
+function tm2wgs(tmX, tmY) {
+  const a=6378137, f=1/298.257222101, e2=2*f-f*f;
+  const lat0=38*Math.PI/180, lon0=127*Math.PI/180, k0=1, x0=200000, y0=600000;
+  const eX=tmX-x0, eY=tmY-y0, e=e2;
+  const e1=(1-Math.sqrt(1-e))/(1+Math.sqrt(1-e));
+  const M0=a*((1-e/4-3*e*e/64-5*e*e*e/256)*lat0
+    -(3*e/8+3*e*e/32+45*e*e*e/1024)*Math.sin(2*lat0)
+    +(15*e*e/256+45*e*e*e/1024)*Math.sin(4*lat0)
+    -(35*e*e*e/3072)*Math.sin(6*lat0));
+  const M=M0+eY/k0;
+  const mu=M/(a*(1-e/4-3*e*e/64-5*e*e*e/256));
+  const phi1=mu+(3*e1/2-27*e1**3/32)*Math.sin(2*mu)
+    +(21*e1*e1/16-55*e1**4/32)*Math.sin(4*mu)
+    +(151*e1**3/96)*Math.sin(6*mu)+(1097*e1**4/512)*Math.sin(8*mu);
+  const N1=a/Math.sqrt(1-e*Math.sin(phi1)**2);
+  const T1=Math.tan(phi1)**2, C1=e/(1-e)*Math.cos(phi1)**2;
+  const R1=a*(1-e)/Math.pow(1-e*Math.sin(phi1)**2,1.5), D=eX/(N1*k0);
+  const lat=phi1-N1*Math.tan(phi1)/R1*(D*D/2
+    -(5+3*T1+10*C1-4*C1*C1-9*e/(1-e))*D**4/24
+    +(61+90*T1+298*C1+45*T1*T1-252*e/(1-e)-3*C1*C1)*D**6/720);
+  const lng=lon0+(D-(1+2*T1+C1)*D**3/6
+    +(5-2*C1+28*T1-3*C1*C1+8*e/(1-e)+24*T1*T1)*D**5/120)/Math.cos(phi1);
+  return { lat:lat*180/Math.PI, lng:lng*180/Math.PI };
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 마커
+// ═══════════════════════════════════════════════════════════════
+function mkIcon(status, sel=false) {
+  const c=SC[status]||SC.unchecked, sz=sel?36:28;
+  return L.divIcon({
+    className:'', iconSize:[sz,sz], iconAnchor:[sz/2,sz/2],
+    html:`<div style="width:${sz}px;height:${sz}px;border-radius:50%;background:${c};
+      border:${sel?'3px solid white':'2px solid rgba(255,255,255,.5)'};
+      box-shadow:0 0 ${sel?14:6}px ${c}90;
+      display:flex;align-items:center;justify-content:center;cursor:pointer">
+      <svg viewBox="0 0 24 24" width="${sz*.44}" height="${sz*.44}" fill="white">
+        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+      </svg></div>`
+  });
+}
+
+function renderMarkers() {
+  markers.forEach(m => map.removeLayer(m)); markers.clear();
+  S.points.forEach(p => {
+    const m = L.marker([p.lat,p.lng], { icon:mkIcon(p.status, S.sel?.id===p.id) }).addTo(map);
+    m.on('click', () => selectPoint(p));
+    markers.set(p.id, m);
+  });
+  document.getElementById('pt-n').textContent = S.points.length;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 기준점 선택
+// ═══════════════════════════════════════════════════════════════
+function selectPoint(p) {
+  if (S.sel) { const pm=markers.get(S.sel.id); if(pm) pm.setIcon(mkIcon(S.sel.status,false)); }
+  S.sel = p; S.status = p.status==='unchecked'?null:p.status;
+  S.nearFile = null; S.farFile = null;
+  const m = markers.get(p.id); if(m) m.setIcon(mkIcon(p.status,true));
+  showDetail(p);
+  // 모바일: 패널 열기
+  document.getElementById('panel').classList.remove('hidden');
+  document.getElementById('btn-tog').classList.add('on');
+  setTimeout(() => map.invalidateSize(), 320);
+}
+
+function showDetail(p) {
+  document.getElementById('welcome').style.display = 'none';
+  document.getElementById('detail').style.display  = 'block';
+  document.getElementById('ph-title').textContent  = '기준점 조사';
+
+  document.getElementById('pt-nm').textContent = p.name;
+  document.getElementById('pt-tp').textContent = p.type || '지적기준점';
+  document.getElementById('c-wgs').textContent = `${p.lat.toFixed(7)}, ${p.lng.toFixed(7)}`;
+  document.getElementById('c-tm').textContent  = `X:${p.tmX.toFixed(2)}, Y:${p.tmY.toFixed(2)}`;
+
+  // 조사 이력 표시
+  const infoEl = document.getElementById('survey-info');
+  if (p.surveyed) {
+    const sc2 = {normal:'var(--green)',lost:'var(--red)',other:'var(--orange)',unchecked:'var(--muted)'};
+    document.getElementById('c-surveyed').textContent = p.surveyed;
+    document.getElementById('c-surveyed').style.color = sc2[p.status]||'var(--muted)';
+    document.getElementById('c-surveyor').textContent  = p.surveyor  || '-';
+    document.getElementById('c-surveydate').textContent = p.surveyDate ? p.surveyDate.replace(/(\d{4})(\d{2})(\d{2})/,'$1-$2-$3') : '-';
+    infoEl.style.display = 'block';
+  } else {
+    infoEl.style.display = 'none';
+  }
+
+  const color = SC[p.status]||SC.unchecked;
+  const ic = document.getElementById('pt-ic');
+  ic.style.background = color+'22'; ic.style.border = `1px solid ${color}44`;
+
+  // 상태 버튼 초기화
+  document.querySelectorAll('.sb').forEach(b => b.className='sb');
+  if (p.status!=='unchecked') {
+    const cls = {normal:'sn',lost:'sl',other:'so'}[p.status];
+    document.querySelector(`.sb[data-s="${p.status}"]`)?.classList.add(cls);
+  }
+  document.getElementById('note-wrap').style.display = p.status==='other'?'block':'none';
+  document.getElementById('note').value = '';
+
+  // 조사자 이름 자동 채우기
+  const survEl = document.getElementById('surveyor');
+  if (!survEl.value && S.cfg.surveyor) survEl.value = S.cfg.surveyor;
+
+  // 사진 슬롯 초기화
+  resetSlot('near'); resetSlot('far');
+  document.getElementById('prog-wrap').style.display = 'none';
+  document.getElementById('prog-bar').style.width = '0';
+}
+
+function resetSlot(type) {
+  const sl = document.getElementById(`sl-${type}`);
+  const ic = type==='near'?'📷':'🔭', lbl=type==='near'?'근경 촬영':'원경 촬영';
+  sl.innerHTML = `<span class="ps-ic">${ic}</span><span class="ps-lbl">${lbl}</span>`;
+  sl.classList.remove('has');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Apps Script API 호출
+// ═══════════════════════════════════════════════════════════════
+// Apps Script GET → JSONP 방식 (CORS/리다이렉트 문제 완전 우회)
+function apiGet(params) {
+  if (!S.cfg.url) return Promise.reject(new Error('Apps Script URL이 설정되지 않았습니다'));
+  return new Promise((resolve, reject) => {
+    const cbName = '_cb_' + Date.now();
+    const qs = new URLSearchParams({ ...params, callback: cbName }).toString();
+    const script = document.createElement('script');
+    const timer = setTimeout(() => {
+      cleanup(); reject(new Error('서버 응답 시간 초과 (15초)'));
+    }, 15000);
+    function cleanup() {
+      clearTimeout(timer);
+      delete window[cbName];
+      if (script.parentNode) script.parentNode.removeChild(script);
+    }
+    window[cbName] = (data) => {
+      cleanup();
+      if (!data.ok) reject(new Error(data.error || '서버 오류'));
+      else resolve(data);
+    };
+    script.onerror = () => { cleanup(); reject(new Error('스크립트 로드 실패 - URL을 확인하세요')); };
+    script.src = `${S.cfg.url}?${qs}`;
+    document.head.appendChild(script);
+  });
+}
+
+// Apps Script POST → fetch + redirect:follow + text/plain (preflight 방지)
+async function apiPost(body) {
+  if (!S.cfg.url) throw new Error('Apps Script URL이 설정되지 않았습니다');
+  const res = await fetch(S.cfg.url, {
+    method: 'POST',
+    body: JSON.stringify(body),
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    redirect: 'follow',
+  });
+  if (!res.ok) throw new Error(`서버 오류: ${res.status}`);
+  const data = await res.json();
+  if (!data.ok) throw new Error(data.error || '알 수 없는 오류');
+  return data;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 기준점 불러오기
+// ═══════════════════════════════════════════════════════════════
+async function loadPoints() {
+  if (!S.cfg.url) {
+    toast('설정에서 Apps Script URL을 먼저 입력하세요', 'err');
+    openCfg(); return;
+  }
+  showLoad('Google Sheets에서 기준점 불러오는 중...');
+  try {
+    const data = await apiGet({ action:'getPoints' });
+    S.points = data.points.map(p => {
+      const wgs = tm2wgs(p.tmX, p.tmY);
+      // 기존 조사여부 → 마커 상태로 매핑
+      const statusMap = {'정상':'normal','망실':'lost','기타':'other'};
+      const status = statusMap[p.surveyed] || 'unchecked';
+      return { id:`${p.name}_${p.tmX}`, name:p.name, tmX:p.tmX, tmY:p.tmY,
+               type:p.type||'', lat:wgs.lat, lng:wgs.lng, status,
+               surveyed:p.surveyed||'', surveyor:p.surveyor||'',
+               surveyDate:p.surveyDate||'', rowIndex:p.rowIndex||0 };
+    });
+    hideLoad();
+    renderMarkers();
+    if (S.points.length===0) { toast('기준점 데이터가 없습니다. Sheets 구조를 확인하세요', 'err'); return; }
+    toast(`기준점 ${S.points.length}개 로드 완료 ✓`, 'ok');
+    map.invalidateSize();
+    const f=S.points[0]; map.flyTo([f.lat,f.lng], 14, {duration:1.5});
+  } catch(e) {
+    hideLoad(); toast('불러오기 실패: '+e.message, 'err');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 조사결과 저장
+// ═══════════════════════════════════════════════════════════════
+async function saveSurvey() {
+  if (!S.sel) return;
+  if (!S.status) { toast('조사 상태를 선택해주세요', 'err'); return; }
+  if (S.status==='other' && !document.getElementById('note').value.trim())
+    { toast('"기타" 선택 시 내용을 입력해주세요', 'err'); return; }
+
+  const surv = document.getElementById('surveyor').value.trim() || '미입력';
+  const now  = new Date();
+  const date = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`;
+
+  setProgress('저장 준비 중...', 5);
+
+  let nearUrl='', farUrl='';
+
+  try {
+    // 1. 근경 업로드
+    if (S.nearFile) {
+      setProgress('근경 사진 업로드 중...', 20);
+      const name = `${S.sel.name}_근경_${date}_${surv}.jpg`;
+      nearUrl = await uploadPhoto(S.nearFile, name);
+      setProgress('근경 업로드 완료', 50);
+    }
+
+    // 2. 원경 업로드
+    if (S.farFile) {
+      setProgress('원경 사진 업로드 중...', 55);
+      const name = `${S.sel.name}_원경_${date}_${surv}.jpg`;
+      farUrl = await uploadPhoto(S.farFile, name);
+      setProgress('원경 업로드 완료', 80);
+    }
+
+    // 3. Sheets 기록
+    setProgress('조사결과 기록 중...', 85);
+    if (S.cfg.url) {
+      await apiPost({
+        action:       'saveSurvey',
+        pointName:    S.sel.name,
+        status:       SL[S.status],
+        statusNote:   S.status==='other' ? document.getElementById('note').value.trim() : '',
+        surveyor:     surv,
+        surveyDate:   date,
+        nearPhotoUrl: nearUrl,
+        farPhotoUrl:  farUrl,
+        rowIndex:     S.sel.rowIndex || 0,
+      });
+    }
+
+    setProgress('완료!', 100);
+    S.sel.status     = S.status;
+    S.sel.surveyed   = SL[S.status];
+    S.sel.surveyor   = surv;
+    S.sel.surveyDate = date;
+    const m = markers.get(S.sel.id); if(m) m.setIcon(mkIcon(S.status, true));
+    // 패널 조사이력 즉시 갱신
+    showDetail(S.sel);
+
+    setTimeout(() => {
+      document.getElementById('prog-wrap').style.display='none';
+      document.getElementById('prog-bar').style.width='0';
+    }, 700);
+
+    toast('✅ 조사 결과가 저장되었습니다', 'ok');
+
+  } catch(e) {
+    document.getElementById('prog-wrap').style.display='none';
+    toast('저장 실패: '+e.message, 'err');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 사진 → base64 → Apps Script 업로드
+// ═══════════════════════════════════════════════════════════════
+async function uploadPhoto(file, fileName) {
+  if (!S.cfg.url) throw new Error('Apps Script URL 미설정');
+
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = async e => {
+      try {
+        // data:image/jpeg;base64,XXXX → XXXX 부분만 추출
+        const base64 = e.target.result.split(',')[1];
+        const data = await apiPost({
+          action:   'uploadPhoto',
+          fileName: fileName,
+          base64:   base64,
+          mimeType: file.type || 'image/jpeg',
+        });
+        resolve(data.viewUrl || '');
+      } catch(err) { reject(err); }
+    };
+    reader.onerror = () => reject(new Error('파일 읽기 실패'));
+    reader.readAsDataURL(file);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 사진 슬롯
+// ═══════════════════════════════════════════════════════════════
+function handlePhoto(type, file) {
+  if (!file) return;
+  const url = URL.createObjectURL(file);
+  const sl  = document.getElementById(`sl-${type}`);
+  const lbl = type==='near'?'근경':'원경';
+  sl.innerHTML = `<img src="${url}" alt="${lbl}"><div class="ps-badge">${lbl}</div>`;
+  sl.classList.add('has');
+  if (type==='near') S.nearFile=file; else S.farFile=file;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 위치
+// ═══════════════════════════════════════════════════════════════
+function startGPS() {
+  if (!navigator.geolocation) return;
+  navigator.geolocation.watchPosition(p => {
+    S.myLat=p.coords.latitude; S.myLng=p.coords.longitude;
+    if (!map.hasLayer(myMarker)) myMarker.addTo(map);
+    myMarker.setLatLng([S.myLat, S.myLng]);
+    updateArStats();
+  }, null, { enableHighAccuracy:true, maximumAge:2000 });
+}
+
+function flyToMe() {
+  if (S.myLat) { map.flyTo([S.myLat,S.myLng],16,{duration:1}); return; }
+  navigator.geolocation?.getCurrentPosition(p => {
+    S.myLat=p.coords.latitude; S.myLng=p.coords.longitude;
+    map.flyTo([S.myLat,S.myLng],16,{duration:1});
+  });
+}
+
+function dist(a1,o1,a2,o2) {
+  const R=6371000, dA=(a2-a1)*Math.PI/180, dO=(o2-o1)*Math.PI/180;
+  const a=Math.sin(dA/2)**2+Math.cos(a1*Math.PI/180)*Math.cos(a2*Math.PI/180)*Math.sin(dO/2)**2;
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+function bearing(a1,o1,a2,o2) {
+  const d=(o2-o1)*Math.PI/180;
+  const y=Math.sin(d)*Math.cos(a2*Math.PI/180);
+  const x=Math.cos(a1*Math.PI/180)*Math.sin(a2*Math.PI/180)-Math.sin(a1*Math.PI/180)*Math.cos(a2*Math.PI/180)*Math.cos(d);
+  return (Math.atan2(y,x)*180/Math.PI+360)%360;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// AR
+// ═══════════════════════════════════════════════════════════════
+async function openAR() {
+  if (!S.sel) return;
+  if (!navigator.mediaDevices?.getUserMedia) { toast('이 브라우저는 카메라를 지원하지 않습니다','err'); return; }
+  try {
+    S.arStream = await navigator.mediaDevices.getUserMedia({
+      video:{ facingMode:'environment', width:{ideal:1920}, height:{ideal:1080} }, audio:false
+    });
+  } catch(e) { toast('카메라 권한을 허용해주세요: '+e.message,'err'); return; }
+
+  document.getElementById('ar-video').srcObject = S.arStream;
+  document.getElementById('ar-nm').textContent  = S.sel.name;
+  document.getElementById('ar-tp').textContent  = S.sel.type||'지적기준점';
+  document.getElementById('ar-stat').textContent = SL[S.sel.status];
+  document.getElementById('ar-stat').style.color  = SC[S.sel.status];
+  document.getElementById('ar').classList.add('open');
+  S.arOpen = true;
+
+  // 나침반
+  if (typeof DeviceOrientationEvent !== 'undefined') {
+    if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+      // iOS 13+
+      DeviceOrientationEvent.requestPermission().then(r => {
+        if (r==='granted') window.addEventListener('deviceorientation', onOrient, true);
+      }).catch(()=>{});
+    } else {
+      window.addEventListener('deviceorientation', onOrient, true);
+    }
+  }
+
+  const canvas = document.getElementById('ar-canvas');
+  function loop() {
+    if (!S.arOpen) return;
+    if (canvas.width!==canvas.offsetWidth||canvas.height!==canvas.offsetHeight) {
+      canvas.width=canvas.offsetWidth; canvas.height=canvas.offsetHeight;
+    }
+    drawAR(canvas);
+    S.arRaf = requestAnimationFrame(loop);
+  }
+  loop();
+}
+
+function closeAR() {
+  S.arOpen=false;
+  if (S.arRaf) cancelAnimationFrame(S.arRaf);
+  if (S.arStream) { S.arStream.getTracks().forEach(t=>t.stop()); S.arStream=null; }
+  document.getElementById('ar-video').srcObject=null;
+  document.getElementById('ar').classList.remove('open');
+  window.removeEventListener('deviceorientation', onOrient);
+}
+
+function onOrient(e) {
+  S.compass = e.webkitCompassHeading ?? ((360-e.alpha)%360);
+  updateArStats();
+}
+
+function updateArStats() {
+  if (!S.sel||!S.myLat) return;
+  const d=dist(S.myLat,S.myLng,S.sel.lat,S.sel.lng);
+  const b=bearing(S.myLat,S.myLng,S.sel.lat,S.sel.lng);
+  document.getElementById('ar-dist').textContent = d<1000?`${d.toFixed(0)}m`:`${(d/1000).toFixed(2)}km`;
+  document.getElementById('ar-bear').textContent = b.toFixed(0);
+  document.getElementById('ar-head').textContent = S.compass.toFixed(0);
+}
+
+function drawAR(c) {
+  const ctx=c.getContext('2d'), w=c.width, h=c.height;
+  ctx.clearRect(0,0,w,h);
+  if (!S.sel||!S.myLat) return;
+
+  const d   = dist(S.myLat,S.myLng,S.sel.lat,S.sel.lng);
+  const b   = bearing(S.myLat,S.myLng,S.sel.lat,S.sel.lng);
+  const col = SC[S.sel.status];
+
+  let rel = b - S.compass;
+  while(rel>180) rel-=360; while(rel<-180) rel+=360;
+
+  // 나침반 바
+  drawCompass(ctx, w, h, S.compass, b, col);
+
+  const inFov = Math.abs(rel) < HFOV/2;
+
+  if (inFov && S.arPin) {
+    drawPin(ctx, w/2 + (rel/HFOV)*w, h*0.42, S.sel.name, d, col,
+      Math.max(0.5, Math.min(2, 50/Math.max(d,1))));
+  } else if (!inFov) {
+    drawArrow(ctx, w, h, rel, d, S.sel.name, col);
+  }
+}
+
+function drawCompass(ctx, w, h, heading, targetB, col) {
+  const by=135, bh=42, cx=w/2;
+  for (let d=-90;d<=90;d+=5) {
+    const x=cx+(d/90)*(w*.45), br=((heading+d)+360)%360;
+    const isC=br%90<1;
+    ctx.beginPath();
+    ctx.strokeStyle=isC?'#e6a817':'rgba(255,255,255,.3)';
+    ctx.lineWidth=isC?2:1;
+    ctx.moveTo(x,by); ctx.lineTo(x,by+(isC?bh*.65:bh*.3)); ctx.stroke();
+    if(isC){
+      ctx.fillStyle='#e6a817'; ctx.font='700 11px monospace'; ctx.textAlign='center';
+      ctx.fillText({0:'N',90:'E',180:'S',270:'W'}[br]||'',x,by+bh*.88);
+    }
+  }
+  let rel=targetB-heading; while(rel>180)rel-=360; while(rel<-180)rel+=360;
+  if(Math.abs(rel)<=90){
+    const tx=cx+(rel/90)*(w*.45);
+    ctx.beginPath(); ctx.arc(tx,by+bh*.2,5.5,0,Math.PI*2);
+    ctx.fillStyle=col; ctx.fill();
+    ctx.strokeStyle='white'; ctx.lineWidth=1.5; ctx.stroke();
+  }
+  ctx.beginPath();
+  ctx.moveTo(cx,by+bh); ctx.lineTo(cx-7,by+bh*.5); ctx.lineTo(cx+7,by+bh*.5);
+  ctx.closePath(); ctx.fillStyle='white'; ctx.fill();
+}
+
+function drawPin(ctx, x, y, name, d, col, sc) {
+  const lw=130*sc, lh=50*sc, lx=x-lw/2, ly=y-lh-48*sc;
+  rr(ctx,lx,ly,lw,lh,8*sc);
+  ctx.fillStyle='rgba(13,17,23,.9)'; ctx.fill();
+  ctx.strokeStyle=col; ctx.lineWidth=1.5; ctx.stroke();
+  ctx.fillStyle='white'; ctx.font=`700 ${12*sc}px sans-serif`; ctx.textAlign='center';
+  ctx.fillText(name,x,ly+19*sc);
+  ctx.fillStyle=col; ctx.font=`${11*sc}px monospace`;
+  ctx.fillText(d<1000?`${d.toFixed(0)}m`:`${(d/1000).toFixed(2)}km`,x,ly+36*sc);
+  ctx.beginPath(); ctx.strokeStyle=col; ctx.lineWidth=2;
+  ctx.moveTo(x,y-48*sc); ctx.lineTo(x,y); ctx.stroke();
+  const g=ctx.createRadialGradient(x,y,0,x,y,10*sc);
+  g.addColorStop(0,col); g.addColorStop(1,col+'40');
+  ctx.beginPath(); ctx.arc(x,y,10*sc,0,Math.PI*2);
+  ctx.fillStyle=g; ctx.fill();
+  ctx.strokeStyle='white'; ctx.lineWidth=2; ctx.stroke();
+}
+
+function drawArrow(ctx, w, h, rel, d, name, col) {
+  const fl=rel<0, ax=fl?58:w-58, ay=h/2;
+  rr(ctx,ax-46,ay-56,92,112,12);
+  ctx.fillStyle='rgba(26,58,107,.88)'; ctx.fill();
+  ctx.strokeStyle=col; ctx.lineWidth=1.5; ctx.stroke();
+  ctx.save(); ctx.translate(ax,ay-20);
+  ctx.rotate(fl?-Math.PI/2:Math.PI/2);
+  ctx.beginPath(); ctx.moveTo(0,-16); ctx.lineTo(-9,4); ctx.lineTo(9,4); ctx.closePath();
+  ctx.fillStyle='white'; ctx.fill(); ctx.restore();
+  ctx.fillStyle='white'; ctx.font='700 11px sans-serif'; ctx.textAlign='center';
+  ctx.fillText(name.length>6?name.slice(0,6)+'…':name, ax, ay+6);
+  ctx.fillStyle=col; ctx.font='11px monospace';
+  ctx.fillText(d<1000?`${d.toFixed(0)}m`:`${(d/1000).toFixed(2)}km`, ax, ay+22);
+}
+
+function rr(ctx,x,y,w,h,r) {
+  ctx.beginPath();
+  ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y); ctx.arcTo(x+w,y,x+w,y+r,r);
+  ctx.lineTo(x+w,y+h-r); ctx.arcTo(x+w,y+h,x+w-r,y+h,r);
+  ctx.lineTo(x+r,y+h); ctx.arcTo(x,y+h,x,y+h-r,r);
+  ctx.lineTo(x,y+r); ctx.arcTo(x,y,x+r,y,r); ctx.closePath();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 설정 모달
+// ═══════════════════════════════════════════════════════════════
+function openCfg() {
+  document.getElementById('s-url').value  = S.cfg.url;
+  document.getElementById('s-surv').value = S.cfg.surveyor;
+  document.getElementById('cfg-modal').classList.add('open');
+}
+function closeCfg() { document.getElementById('cfg-modal').classList.remove('open'); }
+function saveCfgFromModal() {
+  S.cfg.url      = document.getElementById('s-url').value.trim();
+  S.cfg.surveyor = document.getElementById('s-surv').value.trim();
+  saveCfg();
+  closeCfg();
+  toast('설정 저장됨', 'ok');
+  if (S.cfg.url) {
+    document.getElementById('setup-banner').style.display='none';
+    loadPoints();
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 로딩 / 진행 / 토스트
+// ═══════════════════════════════════════════════════════════════
+function showLoad(msg='불러오는 중...') {
+  document.getElementById('load-msg').textContent=msg;
+  document.getElementById('loading').style.display='flex';
+}
+function hideLoad() { document.getElementById('loading').style.display='none'; }
+
+function setProgress(msg, pct) {
+  document.getElementById('prog-wrap').style.display='block';
+  document.getElementById('prog-lbl').textContent=msg;
+  document.getElementById('prog-bar').style.width=pct+'%';
+}
+
+function toast(msg, type='') {
+  const el=document.createElement('div');
+  el.className='toast'+(type?' '+type:'');
+  el.innerHTML=`<span>${type==='ok'?'✅':type==='err'?'❌':'ℹ️'}</span><span>${msg}</span>`;
+  document.getElementById('toasts').appendChild(el);
+  setTimeout(()=>{el.style.opacity='0';el.style.transform='translateY(8px)';
+    el.style.transition='all .3s';setTimeout(()=>el.remove(),300);},3200);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 이벤트
+// ═══════════════════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+  loadCfg();
+  initMap();
+  startGPS();
+
+  // 모바일에서는 패널 기본 숨김 (지도가 보이도록)
+  if (window.innerWidth <= 700) {
+    document.getElementById('panel').classList.add('hidden');
+    document.getElementById('btn-tog').classList.remove('on');
+  }
+
+  // URL 없으면 배너 표시
+  if (!S.cfg.url) {
+    document.getElementById('setup-banner').style.display='block';
+  } else {
+    // URL 있으면 자동 로드
+    setTimeout(loadPoints, 400);
+  }
+
+  // 지도 크기 재계산 (렌더링 완료 후)
+  setTimeout(() => map.invalidateSize(), 300);
+
+  // 타일
+  document.querySelectorAll('.tmb').forEach(b =>
+    b.addEventListener('click', () => switchTile(b.dataset.tile)));
+
+  // 상단바 버튼
+  document.getElementById('btn-load').addEventListener('click', loadPoints);
+  document.getElementById('btn-load2').addEventListener('click', loadPoints);
+  document.getElementById('btn-loc').addEventListener('click', flyToMe);
+  document.getElementById('btn-cfg').addEventListener('click', openCfg);
+  document.getElementById('btn-tog').addEventListener('click', () => {
+    const p=document.getElementById('panel'), b=document.getElementById('btn-tog');
+    p.classList.toggle('hidden'); b.classList.toggle('on');
+    setTimeout(() => map.invalidateSize(), 320);
+  });
+
+  // 상태 버튼
+  const cls={normal:'sn',lost:'sl',other:'so'};
+  document.querySelectorAll('.sb').forEach(b => b.addEventListener('click', () => {
+    document.querySelectorAll('.sb').forEach(x=>x.className='sb');
+    b.classList.add(cls[b.dataset.s]);
+    S.status=b.dataset.s;
+    document.getElementById('note-wrap').style.display=b.dataset.s==='other'?'block':'none';
+  }));
+
+  // 사진
+  document.getElementById('f-near').addEventListener('change',e=>handlePhoto('near',e.target.files[0]));
+  document.getElementById('f-far').addEventListener('change', e=>handlePhoto('far', e.target.files[0]));
+
+  // AR
+  document.getElementById('btn-ar').addEventListener('click', openAR);
+  document.getElementById('ar-close').addEventListener('click', closeAR);
+  document.getElementById('ar-pin').addEventListener('click', () => {
+    S.arPin=!S.arPin;
+    document.getElementById('ar-pin').style.opacity=S.arPin?1:.4;
+  });
+
+  // 저장
+  document.getElementById('btn-save').addEventListener('click', saveSurvey);
+
+  // 설정 모달
+  document.getElementById('cfg-cancel').addEventListener('click', closeCfg);
+  document.getElementById('cfg-save').addEventListener('click', saveCfgFromModal);
+  document.getElementById('cfg-modal').addEventListener('click', e => {
+    if(e.target===e.currentTarget) closeCfg();
+  });
+});
+</script>
+</body>
+</html>

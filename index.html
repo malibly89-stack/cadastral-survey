@@ -240,10 +240,43 @@ input[type=file]{display:none}
   #map{width:100%;height:calc(100vh - 52px)!important}
   #tile-menu{display:none}
   #legend{bottom:12px}
+  /* 수정1: 카카오톡 인앱브라우저 하단 safe area */
+  .pb{padding-bottom:calc(env(safe-area-inset-bottom, 0px) + 80px)!important}
+  #btn-save{margin-bottom:env(safe-area-inset-bottom, 0px)}
 }
+/* 카카오톡 인앱브라우저 감지 - 추가 하단 여백 */
+.pb{padding-bottom:16px}
 </style>
 </head>
 <body>
+
+<!-- 수정2: 조사자 입력 첫화면 -->
+<div id="start-screen" style="
+  position:fixed;inset:0;z-index:9500;
+  background:var(--bg);
+  display:flex;align-items:center;justify-content:center;
+  padding:32px;
+">
+  <div style="width:100%;max-width:360px;text-align:center">
+    <div style="width:68px;height:68px;background:var(--adim);border:1px solid var(--accent);
+      border-radius:18px;display:flex;align-items:center;justify-content:center;
+      font-size:30px;margin:0 auto 20px">📍</div>
+    <div style="font-size:22px;font-weight:700;margin-bottom:6px">지적기준점 조사</div>
+    <div style="font-size:13px;color:var(--sub);margin-bottom:32px;line-height:1.6">
+      조사자 이름을 입력하고 시작하세요
+    </div>
+    <div style="text-align:left;margin-bottom:8px">
+      <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+        color:var(--sub);margin-bottom:6px">조사자 이름</div>
+      <input type="text" id="start-name"
+        class="inp" style="height:48px;font-size:16px;text-align:center"
+        placeholder="이름을 입력하세요" autocomplete="name">
+    </div>
+    <button id="start-btn" class="btn btn-p" style="height:50px;font-size:15px;margin-top:12px">
+      지도 화면으로 →
+    </button>
+  </div>
+</div>
 
 <div id="app">
   <!-- 지도 -->
@@ -259,7 +292,6 @@ input[type=file]{display:none}
     <div id="cnt">기준점 <b id="pt-n">0</b>개</div>
     <button class="ib" id="btn-load" title="기준점 불러오기" style="border:1px solid var(--border)">⟳</button>
     <button class="ib" id="btn-loc"  title="내 위치"         style="border:1px solid var(--border)">⌖</button>
-    <button class="ib" id="btn-cfg"  title="설정"            style="border:1px solid var(--border)">⚙</button>
     <button class="ib on" id="btn-tog" title="패널 토글"     style="border:1px solid var(--accent)">◧</button>
   </div>
 
@@ -305,10 +337,11 @@ input[type=file]{display:none}
         </div>
       </div>
 
-      <!-- 좌표 -->
+      <!-- 수정3: 좌표 (TM중부원점→좌표, GRS80/ITRF2000) -->
       <div class="cbox">
-        <div class="cr"><span class="cl">WGS84</span><span id="c-wgs">-</span></div>
-        <div class="cr"><span class="cl">TM 중부원점</span><span id="c-tm">-</span></div>
+        <div style="font-size:9px;color:var(--muted);letter-spacing:.06em;margin-bottom:6px">GRS80 타원체 · ITRF2000</div>
+        <div class="cr"><span class="cl">경위도</span><span id="c-wgs">-</span></div>
+        <div class="cr"><span class="cl">좌표</span><span id="c-tm">-</span></div>
       </div>
       <!-- 조사 현황 -->
       <div id="survey-info" style="display:none;background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:10px;margin-bottom:12px;font-size:12px">
@@ -318,8 +351,11 @@ input[type=file]{display:none}
         <div class="cr" style="margin-top:4px"><span class="cl">조사날짜</span><span id="c-surveydate">-</span></div>
       </div>
 
-      <!-- AR 버튼 -->
-      <button class="btn btn-ar" id="btn-ar">📡 AR 오버레이로 보기</button>
+      <!-- AR + 네비게이션 버튼 -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+        <button class="btn btn-ar" id="btn-ar" style="margin:0;font-size:12px">📡 AR 보기</button>
+        <button class="btn" id="btn-nav" style="background:rgba(63,185,80,.12);border:1px solid var(--green);color:var(--green);margin:0;font-size:12px">🗺 길 안내</button>
+      </div>
 
       <!-- 조사자 -->
       <div class="sec">조사자</div>
@@ -379,11 +415,11 @@ input[type=file]{display:none}
     <button class="aib" id="ar-pin" title="가상 마커">📌</button>
   </div>
   <div id="ar-comp"></div>
+  <!-- 수정3: 방위 제거 → 거리 + 상태만 표시 -->
   <div id="ar-bottom">
     <div class="as"><div class="as-v" id="ar-dist">-</div><div class="as-l">거리</div></div>
-    <div class="as"><div class="as-v" id="ar-bear">-°</div><div class="as-l">목표 방위</div></div>
-    <div class="as"><div class="as-v" id="ar-head">-°</div><div class="as-l">현재 방향</div></div>
     <div class="as"><div class="as-v" id="ar-stat">-</div><div class="as-l">상태</div></div>
+    <div style="display:none"><div id="ar-bear"></div><div id="ar-head"></div></div>
   </div>
 </div>
 
@@ -596,9 +632,9 @@ function showDetail(p) {
   document.getElementById('note-wrap').style.display = p.status==='other'?'block':'none';
   document.getElementById('note').value = '';
 
-  // 조사자 이름 자동 채우기
+  // 조사자 이름 자동 채우기 (시작화면에서 입력한 이름 사용)
   const survEl = document.getElementById('surveyor');
-  if (!survEl.value && S.cfg.surveyor) survEl.value = S.cfg.surveyor;
+  if (S.cfg.surveyor) survEl.value = S.cfg.surveyor;
 
   // 사진 슬롯 초기화
   resetSlot('near'); resetSlot('far');
@@ -1040,27 +1076,112 @@ function toast(msg, type='') {
 // ═══════════════════════════════════════════════════════════════
 // 이벤트
 // ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
+// 수정2: 조사자 입력 첫화면 → 지도 화면 전환
+// ═══════════════════════════════════════════════════════════════
+function startApp(name) {
+  S.cfg.surveyor = name;
+  saveCfg();
+  // 조사자 이름을 패널 입력창에도 채워둠
+  document.getElementById('surveyor').value = name;
+  // 시작화면 숨기기
+  document.getElementById('start-screen').style.display = 'none';
+  // 지도 크기 재계산
+  setTimeout(() => map.invalidateSize(), 300);
+  // 기준점 자동 로드
+  if (S.cfg.url) setTimeout(loadPoints, 400);
+  else document.getElementById('setup-banner').style.display='block';
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 수정4: 네비게이션 (카카오맵 / 구글맵)
+// ═══════════════════════════════════════════════════════════════
+function openNavigation() {
+  if (!S.sel) return;
+  const lat = S.sel.lat, lng = S.sel.lng, name = S.sel.name;
+
+  // 네비 선택 모달
+  const ex = document.getElementById('nav-modal'); if(ex) ex.remove();
+  const d = document.createElement('div');
+  d.id = 'nav-modal';
+  d.style.cssText='position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.72);display:flex;align-items:flex-end;justify-content:center;padding:20px';
+  d.innerHTML=`
+    <div style="background:var(--panel);border:1px solid var(--border);border-radius:14px;
+      padding:20px;width:100%;max-width:380px;padding-bottom:calc(env(safe-area-inset-bottom,0px) + 20px)">
+      <div style="font-size:14px;font-weight:700;margin-bottom:4px">${name} 길 안내</div>
+      <div style="font-size:12px;color:var(--sub);margin-bottom:16px">
+        ${lat.toFixed(6)}, ${lng.toFixed(6)}
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <button onclick="openKakaoNav(${lat},${lng},'${name}')"
+          style="padding:14px;border-radius:var(--r);border:1px solid #FEE500;
+            background:rgba(254,229,0,.1);color:#FEE500;font-size:14px;font-weight:700;
+            cursor:pointer;font-family:var(--ui)">
+          🟡 카카오맵으로 안내
+        </button>
+        <button onclick="openGoogleNav(${lat},${lng})"
+          style="padding:14px;border-radius:var(--r);border:1px solid var(--blue);
+            background:rgba(88,166,255,.1);color:var(--blue);font-size:14px;font-weight:700;
+            cursor:pointer;font-family:var(--ui)">
+          🌐 구글맵으로 안내
+        </button>
+        <button onclick="document.getElementById('nav-modal').remove()"
+          style="padding:12px;border-radius:var(--r);border:1px solid var(--border);
+            background:var(--card);color:var(--sub);font-size:13px;
+            cursor:pointer;font-family:var(--ui)">
+          취소
+        </button>
+      </div>
+    </div>`;
+  document.body.appendChild(d);
+  d.addEventListener('click', e => { if(e.target===d) d.remove(); });
+}
+
+function openKakaoNav(lat, lng, name) {
+  document.getElementById('nav-modal')?.remove();
+  // 카카오맵 앱 우선, 없으면 웹으로 fallback
+  const appUrl = `kakaomap://route?ep=${lat},${lng}&by=CAR`;
+  const webUrl = `https://map.kakao.com/link/to/${encodeURIComponent(name)},${lat},${lng}`;
+  const a = document.createElement('a');
+  a.href = appUrl; a.click();
+  // 앱이 없으면 1.2초 후 웹으로 이동
+  setTimeout(() => { window.open(webUrl, '_blank'); }, 1200);
+}
+
+function openGoogleNav(lat, lng) {
+  document.getElementById('nav-modal')?.remove();
+  window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`, '_blank');
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   loadCfg();
   initMap();
   startGPS();
 
-  // 모바일에서는 패널 기본 숨김 (지도가 보이도록)
+  // 수정2: 시작화면 - 저장된 이름 있으면 자동 채우기
+  const savedName = S.cfg.surveyor;
+  if (savedName) document.getElementById('start-name').value = savedName;
+
+  // 시작 버튼
+  document.getElementById('start-btn').addEventListener('click', () => {
+    const name = document.getElementById('start-name').value.trim();
+    if (!name) {
+      document.getElementById('start-name').style.borderColor='var(--red)';
+      document.getElementById('start-name').focus();
+      return;
+    }
+    startApp(name);
+  });
+  // 엔터키로도 시작
+  document.getElementById('start-name').addEventListener('keydown', e => {
+    if (e.key==='Enter') document.getElementById('start-btn').click();
+  });
+
+  // 모바일에서는 패널 기본 숨김
   if (window.innerWidth <= 700) {
     document.getElementById('panel').classList.add('hidden');
     document.getElementById('btn-tog').classList.remove('on');
   }
-
-  // URL 없으면 배너 표시
-  if (!S.cfg.url) {
-    document.getElementById('setup-banner').style.display='block';
-  } else {
-    // URL 있으면 자동 로드
-    setTimeout(loadPoints, 400);
-  }
-
-  // 지도 크기 재계산 (렌더링 완료 후)
-  setTimeout(() => map.invalidateSize(), 300);
 
   // 타일
   document.querySelectorAll('.tmb').forEach(b =>
@@ -1070,7 +1191,6 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-load').addEventListener('click', loadPoints);
   document.getElementById('btn-load2').addEventListener('click', loadPoints);
   document.getElementById('btn-loc').addEventListener('click', flyToMe);
-  document.getElementById('btn-cfg').addEventListener('click', openCfg);
   document.getElementById('btn-tog').addEventListener('click', () => {
     const p=document.getElementById('panel'), b=document.getElementById('btn-tog');
     p.classList.toggle('hidden'); b.classList.toggle('on');
@@ -1098,10 +1218,13 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('ar-pin').style.opacity=S.arPin?1:.4;
   });
 
+  // 수정4: 네비게이션
+  document.getElementById('btn-nav').addEventListener('click', openNavigation);
+
   // 저장
   document.getElementById('btn-save').addEventListener('click', saveSurvey);
 
-  // 설정 모달
+  // 설정 모달 (URL만 남김)
   document.getElementById('cfg-cancel').addEventListener('click', closeCfg);
   document.getElementById('cfg-save').addEventListener('click', saveCfgFromModal);
   document.getElementById('cfg-modal').addEventListener('click', e => {

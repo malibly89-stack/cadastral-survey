@@ -339,7 +339,7 @@ input[type=file]{display:none}
 
       <!-- 수정3: 좌표 (TM중부원점→좌표, GRS80/ITRF2000) -->
       <div class="cbox">
-        <div style="font-size:9px;color:var(--muted);letter-spacing:.06em;margin-bottom:6px">GRS80 타원체 · ITRF2000</div>
+        <div style="font-size:9px;color:var(--muted);letter-spacing:.06em;margin-bottom:6px">GRS80 타원체 · ITRF2000 &nbsp;|&nbsp; X=Northing · Y=Easting</div>
         <div class="cr"><span class="cl">경위도</span><span id="c-wgs">-</span></div>
         <div class="cr"><span class="cl">좌표</span><span id="c-tm">-</span></div>
       </div>
@@ -529,10 +529,13 @@ function switchTile(type) {
 // ═══════════════════════════════════════════════════════════════
 // TM 중부원점 (EPSG:5186) → WGS84
 // ═══════════════════════════════════════════════════════════════
-function tm2wgs(tmX, tmY) {
+// 지적측량 기준: X=Northing(북방향), Y=Easting(동방향)
+// GRS80 타원체, ITRF2000, TM 중부원점 (EPSG:5186)
+function tm2wgs(X_northing, Y_easting) {
   const a=6378137, f=1/298.257222101, e2=2*f-f*f;
   const lat0=38*Math.PI/180, lon0=127*Math.PI/180, k0=1, x0=200000, y0=600000;
-  const eX=tmX-x0, eY=tmY-y0, e=e2;
+  // 지적측량 X=Northing → eY, Y=Easting → eX
+  const eX=Y_easting-x0, eY=X_northing-y0, e=e2;
   const e1=(1-Math.sqrt(1-e))/(1+Math.sqrt(1-e));
   const M0=a*((1-e/4-3*e*e/64-5*e*e*e/256)*lat0
     -(3*e/8+3*e*e/32+45*e*e*e/1024)*Math.sin(2*lat0)
@@ -604,7 +607,8 @@ function showDetail(p) {
   document.getElementById('pt-nm').textContent = p.name;
   document.getElementById('pt-tp').textContent = p.type || '지적기준점';
   document.getElementById('c-wgs').textContent = `${p.lat.toFixed(7)}, ${p.lng.toFixed(7)}`;
-  document.getElementById('c-tm').textContent  = `X:${p.tmX.toFixed(2)}, Y:${p.tmY.toFixed(2)}`;
+  // 지적측량 표기: X=Northing(B열), Y=Easting(C열)
+  document.getElementById('c-tm').textContent  = `X:${p.tmX.toFixed(3)}  Y:${p.tmY.toFixed(3)}`;
 
   // 조사 이력 표시
   const infoEl = document.getElementById('survey-info');
@@ -705,8 +709,8 @@ async function loadPoints() {
   try {
     const data = await apiGet({ action:'getPoints' });
     S.points = data.points.map(p => {
+      // 지적측량 기준: 시트 B열=X(Northing), C열=Y(Easting) 그대로 전달
       const wgs = tm2wgs(p.tmX, p.tmY);
-      // 기존 조사여부 → 마커 상태로 매핑
       const statusMap = {'정상':'normal','망실':'lost','기타':'other'};
       const status = statusMap[p.surveyed] || 'unchecked';
       return { id:`${p.name}_${p.tmX}`, name:p.name, tmX:p.tmX, tmY:p.tmY,
